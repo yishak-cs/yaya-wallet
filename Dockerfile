@@ -1,5 +1,5 @@
 # Use a Node.js base image for building the React app
-FROM node:alpine as builder
+FROM node:alpine as frontend-builder
 
 # Install pnpm
 RUN npm install -g pnpm
@@ -8,13 +8,14 @@ RUN npm install -g pnpm
 WORKDIR /app
 
 # Copy package.json and package-lock.json to install dependencies
-COPY package.json pnpm-lock.yaml ./
+COPY Web/package.json Web/pnpm-lock.yaml ./Web/
 
 # Install project dependencies
+WORKDIR /app/web/frontend
 RUN pnpm install --frozen-lockfile
 
 # Copy the entire React application code
-COPY . .
+COPY Web/frontend/ ./
 
 # Build the React application for production
 RUN echo "=== Starting Vite build ===" && \
