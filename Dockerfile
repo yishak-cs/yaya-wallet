@@ -8,10 +8,10 @@ RUN npm install -g pnpm
 WORKDIR /app
 
 # Copy package.json and package-lock.json to install dependencies
-COPY Web/package.json Web/pnpm-lock.yaml ./Web/
+COPY Web/frontend/package.json Web/frontend/pnpm-lock.yaml ./Web/frontend/
 
 # Install project dependencies
-WORKDIR /app/web/frontend
+WORKDIR /app/Web/frontend
 RUN pnpm install --frozen-lockfile
 
 # Copy the entire React application code
@@ -55,7 +55,6 @@ WORKDIR /root/
 # Copy the binary and frontend files
 COPY --from=backend-builder /app/app .
 COPY --from=backend-builder /app/Web/static ./Web/static
-COPY --from=backend-builder /app/data ./data
 
 # Expose port
 EXPOSE 8080

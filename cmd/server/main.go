@@ -28,11 +28,21 @@ func main() {
 		SelectedUser: make(map[string]service.User),
 	}
 
-	// Setup routes with CORS
+	// Serve static files (frontend)
+	fs := http.FileServer(http.Dir("Web/static"))
+	http.Handle("/", fs)
+
+	// Setup API routes with CORS
 	http.HandleFunc("/api/users", server.CorsWrapper(server.HandleUsers))
 	http.HandleFunc("/api/select-user", server.CorsWrapper(server.HandleSelectUser))
 	http.HandleFunc("/api/transactions", server.CorsWrapper(server.HandleTransactions))
 	http.HandleFunc("/api/search", server.CorsWrapper(server.HandleSearch))
+
+	// Health check endpoint
+	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -40,5 +50,6 @@ func main() {
 	}
 
 	log.Printf("Server starting on port %s", port)
+	log.Printf("Frontend will be served from Web/static directory")
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
