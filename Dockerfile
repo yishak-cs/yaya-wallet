@@ -22,17 +22,46 @@ RUN echo "=== Starting Vite build ===" && \
     pnpm exec vite build --mode production && \
     echo "=== Vite build completed ==="
 
-# Use a lightweight Nginx image to serve the static build
-FROM nginx:alpine
+# Stage 2: Build the Go backend
+FROM golang:1.24.1-alpine AS backend-builder
 
-# Copy the built React app from the builder stage to Nginx's web root
-COPY --from=builder /app/dist /usr/share/nginx/html
+# Set working directory
+WORKDIR /app
 
-# Copy your custom nginx config
-COPY --from=builder /app/nginx.config /etc/nginx/conf.d/default.conf
+# Copy Go mod files
+COPY go.mod go.sum ./
 
-# Expose port 80 for the Nginx server
-EXPOSE 80
+# Download Go dependencies
+RUN go mod download
 
-# Command to start Nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Copy source code
+COPY . .
+
+# Copy built frontend from previous stage  
+COPY --from=frontend-builder /app/Web/frontend/dist ./Web/static
+
+# Build the Go application with optimizations
+RUN CGO_ENABLED=0 GOOS=linux go build -tags netgo -ldflags '-s -w' -o app ./cmd/server
+
+# Stage 3: Final runtime image
+FROM alpine:latest
+
+# Install ca-certificates for HTTPS and curl for health checks
+RUN apk --no-cache add ca-certificates curl tzdata
+
+# Create app directory
+WORKDIR /root/
+
+# Copy the binary and frontend files
+COPY --from=backend-builder /app/app .
+COPY --from=backend-builder /app/Web/static ./Web/static
+COPY --from=backend-builder /app/data ./data
+
+# Expose port
+EXPOSE 8080
+
+# Set environment variables
+ENV APP_PORT=8080
+
+# Run the application
+CMD ["./app"] 
