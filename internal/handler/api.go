@@ -104,12 +104,12 @@ func (s *Server) HandleTransactions(w http.ResponseWriter, r *http.Request) {
 
 	page := r.URL.Query().Get("p")
 	if page == "" {
-		page = "20"
+		page = "1"
 	}
 
-	// Make request to YaYa Wallet API
-	endpoint := "/api/en/transaction/find-by-user?p=" + page
-	resp, err := s.YayaClient.MakeRequest("GET", endpoint, nil)
+	// request YaYa Wallet API
+	endpoint := "/api/en/transaction/find-by-user"
+	resp, err := s.YayaClient.MakeRequest("GET", endpoint, nil, "p="+page)
 	if err != nil {
 		log.Printf("Error fetching transactions: %v", err)
 		http.Error(w, "Error fetching transactions", http.StatusInternalServerError)
@@ -132,7 +132,7 @@ func (s *Server) HandleTransactions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Add user context and transaction indicators
+	// with user context for transaction indicators
 	response := map[string]interface{}{
 		"user":         user,
 		"transactions": apiResponse,
@@ -173,8 +173,13 @@ func (s *Server) HandleSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	page := r.URL.Query().Get("p")
+	if page == "" {
+		page = "1"
+	}
+
 	// Make request to YaYa Wallet API
-	resp, err := s.YayaClient.MakeRequest("POST", "/api/en/transaction/search", requestBody)
+	resp, err := s.YayaClient.MakeRequest("POST", "/api/en/transaction/search", requestBody, "p="+page)
 	if err != nil {
 		log.Printf("Error searching transactions: %v", err)
 		http.Error(w, "Error searching transactions", http.StatusInternalServerError)
@@ -182,7 +187,6 @@ func (s *Server) HandleSearch(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	// Read response body
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Printf("Error reading search response: %v", err)
@@ -190,7 +194,7 @@ func (s *Server) HandleSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse and return response with user context
+	// prse and return response with user context
 	var apiResponse map[string]interface{}
 	if err := json.Unmarshal(body, &apiResponse); err != nil {
 		log.Printf("Error parsing search response: %v", err)
