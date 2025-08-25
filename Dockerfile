@@ -1,5 +1,5 @@
 # Use a Node.js base image for building the React app
-FROM node:alpine as frontend-builder
+FROM node:alpine AS frontend-builder
 
 # Install pnpm
 RUN npm install -g pnpm

@@ -18,8 +18,13 @@ func (c *YaYaClient) generateSignature(timestamp, method, endpoint, body string)
 }
 
 // makeRequest makes an authenticated request to YaYa Wallet API
-func (c *YaYaClient) MakeRequest(method, endpoint string, body []byte) (*http.Response, error) {
+func (c *YaYaClient) MakeRequest(method, endpoint string, body []byte, queryParams string) (*http.Response, error) {
+	// Build the full URL with query parameters
 	url := c.BaseURL + endpoint
+	if queryParams != "" {
+		url += "?" + queryParams
+	}
+
 	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
 
 	var bodyStr string
@@ -27,6 +32,7 @@ func (c *YaYaClient) MakeRequest(method, endpoint string, body []byte) (*http.Re
 		bodyStr = string(body)
 	}
 
+	// Generate signature using only the base endpoint (without query parameters)
 	signature := c.generateSignature(timestamp, method, endpoint, bodyStr)
 
 	var req *http.Request
@@ -41,6 +47,7 @@ func (c *YaYaClient) MakeRequest(method, endpoint string, body []byte) (*http.Re
 	if err != nil {
 		return nil, err
 	}
+
 	// Set required headers
 	req.Header.Set("YAYA-API-KEY", c.APIKey)
 	req.Header.Set("YAYA-API-TIMESTAMP", timestamp)

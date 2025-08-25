@@ -23,29 +23,19 @@ func NewServer(yayaClient *service.YaYaClient) *Server {
 	}
 }
 
-// handles CORS for browser requests
-func (s *Server) CorsMiddleware(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Session-ID")
+// corsWrapper wraps handlers with CORS headers
+func (s *Server) CorsWrapper(handler func(http.ResponseWriter, *http.Request)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Session-ID")
 
-	if r.Method == "OPTIONS" {
-		w.WriteHeader(http.StatusOK)
-		return
-	}
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
 
-	// Route to appropriate handler
-	switch r.URL.Path {
-	case "/api/users":
-		s.HandleUsers(w, r)
-	case "/api/select-user":
-		s.HandleSelectUser(w, r)
-	case "/api/transactions":
-		s.HandleTransactions(w, r)
-	case "/api/search":
-		s.HandleSearch(w, r)
-	default:
-		http.NotFound(w, r)
+		handler(w, r)
 	}
 }
 
@@ -114,7 +104,7 @@ func (s *Server) HandleTransactions(w http.ResponseWriter, r *http.Request) {
 
 	page := r.URL.Query().Get("p")
 	if page == "" {
-		page = "1"
+		page = "20"
 	}
 
 	// Make request to YaYa Wallet API

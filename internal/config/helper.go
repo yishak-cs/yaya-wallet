@@ -9,9 +9,9 @@ import (
 
 func LoadConfigFromEnv() service.YaYaClient {
 	return service.YaYaClient{
-		BaseURL:   getEnvOrDefault("YA_YA_BASE_URL", "https://api.yayawallet.com/api/en"),
-		APIKey:    getEnvOrDefault("YA_YA_API_KEY", ""),
-		APISecret: getEnvOrDefault("YA_YA_API_SECRET", ""),
+		BaseURL:   getEnvOrDefault("YAYA_BASE_URL", ""),
+		APIKey:    getEnvOrDefault("YAYA_API_KEY", ""),
+		APISecret: getEnvOrDefault("YAYA_API_SIGN", ""),
 		Client:    &http.Client{},
 	}
 }

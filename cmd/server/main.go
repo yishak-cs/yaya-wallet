@@ -13,9 +13,8 @@ import (
 
 func main() {
 
-	err := godotenv.Load()
-	if err != nil {
-		log.Println("No .env file found, using system environment variables")
+	if err := godotenv.Load(); err != nil {
+		log.Printf("No .env file found, using system environment variables")
 	}
 
 	yayaClient := config.LoadConfigFromEnv()
@@ -29,14 +28,11 @@ func main() {
 		SelectedUser: make(map[string]service.User),
 	}
 
-	// Setup routes
-	http.HandleFunc("/api/users", server.HandleSearch)
-	http.HandleFunc("/api/select-user", server.HandleSelectUser)
-	http.HandleFunc("/api/transactions", server.HandleTransactions)
-	http.HandleFunc("/api/search", server.HandleSearch)
-
-	// Add CORS middleware
-	http.HandleFunc("/", server.CorsMiddleware)
+	// Setup routes with CORS
+	http.HandleFunc("/api/users", server.CorsWrapper(server.HandleUsers))
+	http.HandleFunc("/api/select-user", server.CorsWrapper(server.HandleSelectUser))
+	http.HandleFunc("/api/transactions", server.CorsWrapper(server.HandleTransactions))
+	http.HandleFunc("/api/search", server.CorsWrapper(server.HandleSearch))
 
 	port := os.Getenv("PORT")
 	if port == "" {
