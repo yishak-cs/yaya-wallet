@@ -25,7 +25,7 @@ RUN echo "=== Starting Vite build ===" && \
 FROM nginx:alpine
 
 # Copy the built React app from the builder stage to Nginx's web root
-COPY --from=builder /app/build /usr/share/nginx/html
+COPY --from=builder /app/dist /usr/share/nginx/html
 
 # Expose port 80 for the Nginx server
 EXPOSE 80
