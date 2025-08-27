@@ -300,12 +300,8 @@ func generateSignature(timestamp, method, endpoint, body, secret string) string 
 ## 🙏 Acknowledgments
 
 - YaYa Wallet for providing the sandbox API
-- And last but not least ....
+- And last but not least I want to thank M....😄
 
 ---
 
-**Made with ❤️ for secure, modern transaction monitoring**
-
-```markdown
-# Copy this README.md content to your repository
-```
+**Made with ❤️ **
