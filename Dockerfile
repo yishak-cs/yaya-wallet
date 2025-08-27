@@ -7,20 +7,27 @@ RUN npm install -g pnpm
 # Set the working directory inside the container
 WORKDIR /app
 
-# Copy package.json and package-lock.json to install dependencies
+# Copy package.json and pnpm-lock.yaml to install dependencies
 COPY Web/frontend/package.json Web/frontend/pnpm-lock.yaml ./Web/frontend/
 
-# Install project dependencies
+# Install project dependencies (including dev dependencies for build)
 WORKDIR /app/Web/frontend
-RUN pnpm install --frozen-lockfile
+RUN echo "=== Installing dependencies ===" && \
+    pnpm install --include=dev && \
+    echo "=== Checking if TypeScript is installed ===" && \
+    ls -la node_modules/.bin/tsc* || echo "TypeScript not found in .bin" && \
+    echo "=== Checking if Vite is installed ===" && \
+    ls -la node_modules/.bin/vite* || echo "Vite not found in .bin" && \
+    echo "=== Node modules structure ===" && \
+    ls -la node_modules/ | head -10
 
 # Copy the entire React application code
 COPY Web/frontend/ ./
 
 # Build the React application for production
-RUN echo "=== Starting Vite build ===" && \
-    pnpm exec vite build --mode production && \
-    echo "=== Vite build completed ==="
+RUN echo "=== Starting build ===" && \
+    pnpm run build && \
+    echo "=== Build completed ==="
 
 # Stage 2: Build the Go backend
 FROM golang:1.24.1-alpine AS backend-builder
@@ -63,4 +70,4 @@ EXPOSE 8080
 ENV APP_PORT=8080
 
 # Run the application
-CMD ["./app"] 
+CMD ["./app"]

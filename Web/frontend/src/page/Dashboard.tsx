@@ -1,216 +1,281 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import type { Transaction, User } from '@/types';
-import { apiClient } from '../api/services';
+import type React from "react"
+import { useState, useEffect } from "react"
+import { useNavigate } from "react-router-dom"
+import { Search, ArrowUpRight, ArrowDownLeft, RefreshCw } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import type { Transaction } from "@/types"
+import { apiClient } from "../api/services"
+import PaginationDataTable from "@/components/ui/paginationdatatable"
+import type { ColumnDef } from "@tanstack/react-table"
+import DataTableColumnHeader from "@/components/ui/datatableheader"
+import AppLayout from "@/layout/AppLayout"
+import { formatDate } from "@/lib/utils"
 
 const Dashboard: React.FC = () => {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [currentUser, setCurrentUser] = useState<any | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [loading, setLoading] = useState(false)
+  const navigate = useNavigate()
+
+  // Define columns for the datatable
+  const columns: ColumnDef<Transaction>[] = [
+  
+    {
+      accessorKey: "id",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="ID" />
+      ),
+    },
+
+    {
+      accessorKey: "type",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Type" />
+      ),
+      cell: ({ row }) => {
+        const transaction = row.original
+        const isReceiver = !!currentUser && (
+          transaction.receiver.account === currentUser.Account ||
+          transaction.receiver.name === currentUser.Name
+        )
+        const isSender = !!currentUser && (
+          transaction.sender.account === currentUser.Account ||
+          transaction.sender.name === currentUser.Name
+        )
+
+        if (!isSender && !isReceiver) {
+          return <span>Not your transaction</span>
+        }
+
+        const incoming = isReceiver
+
+        return (
+          <Badge
+            variant={incoming ? "default" : "secondary"}
+            className={`gap-1 ${
+              incoming
+                ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                : "bg-orange-100 text-orange-700 hover:bg-orange-200"
+            }`}
+          >
+            {incoming ? <ArrowDownLeft className="h-3 w-3" /> : <ArrowUpRight className="h-3 w-3" />}
+            {incoming ? "In" : "Out"}
+          </Badge>
+        )
+      },
+    },
+    {
+      accessorKey: "contact",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="From/To" />
+      ),
+      cell: ({ row }) => {
+        const transaction = row.original
+        const incoming = isIncoming(transaction)
+        const contact = incoming ? transaction.sender : transaction.receiver
+        return (
+          <div className="flex items-center gap-3">
+            <Avatar className="h-8 w-8">
+              <AvatarFallback className="text-xs">
+                {(contact.name || "?")
+                  .split(" ")
+                  .map((n: string) => n.charAt(0))
+                  .slice(0, 2)
+                  .join("")
+                  .toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 justify-start">
+              <div className="font-medium text-slate-900 truncate">{contact.name}</div>
+              <div className="text-sm text-slate-500 truncate">@{contact.account}</div>
+            </div>
+          </div>
+        )
+      },
+    },
+    {
+      accessorKey: "amount_with_currency",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Amount" />
+      ),
+      cell: ({ row }) => {
+        const transaction = row.original
+        const isReceiver = !!currentUser && (
+          transaction.receiver.account === currentUser.Account ||
+          transaction.receiver.name === currentUser.Name
+        )
+        const isSender = !!currentUser && (
+          transaction.sender.account === currentUser.Account ||
+          transaction.sender.name === currentUser.Name
+        )
+
+        if (!isSender && !isReceiver) {
+          return <span>{transaction.amount_with_currency}</span>
+        }
+
+        const incoming = isReceiver
+        return (
+          <div className={`font-semibold ${incoming ? "text-emerald-600" : "text-orange-600"}`}>
+            {incoming ? "+" : "-"}
+            {transaction.amount_with_currency}
+          </div>
+        )
+      },
+    },
+    {
+      accessorKey: "cause",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Cause" />
+      ),
+      cell: ({ row }) => {
+        const transaction = row.original
+        return (
+          <div className="text-slate-600 truncate max-w-xs" title={transaction.cause}>
+            {transaction.cause}
+          </div>
+        )
+      },
+    },
+    {
+      accessorKey: "created_at_time",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Created At" />
+      ),
+      cell: ({ row }) => {
+        const transaction = row.original
+        return (
+          <div className="text-slate-500 text-sm">
+            {formatDate(transaction.created_at_time)}
+          </div>
+        )
+      },
+    },
+  ]
 
   useEffect(() => {
-    // Check if user is selected
-    const sessionId = apiClient.getSessionId();
+    const sessionId = apiClient.getSessionId()
     if (!sessionId) {
-      navigate('/');
-      return;
+      navigate("/")
+      return
     }
-
-    fetchTransactions();
-  }, [currentPage]);
+    window.dispatchEvent(new CustomEvent('yaya:user-changed'))
+    fetchTransactions()
+  }, [currentPage])
 
   const fetchTransactions = async () => {
-    setLoading(true);
+    setLoading(true)
     try {
-      const response = await apiClient.getTransactions(currentPage);
-      setCurrentUser(response.user);
-      setTransactions(response.transactions.data || []);
+      const response = await apiClient.getTransactions(currentPage)
+      setCurrentUser(response.user)
+      setTransactions(response.transactions.data || [])
+      
+      if (response.user) {
+        localStorage.setItem("yaya_current_user", JSON.stringify(response.user))
+      }
     } catch (error) {
-      console.error('Error fetching transactions:', error);
-      // If session is invalid, redirect to user selection
-      navigate('/');
+      console.error("Error fetching transactions:", error)
+      navigate("/")
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
+
+  const handleRowClick = (row: any) => {
+    const transaction = row.original
+    // Store the transaction in localStorage so TransactionDetails can access it
+    localStorage.setItem("yaya_selected_transaction", JSON.stringify(transaction))
+    navigate(`/transaction/${transaction.id}`)
+  }
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
-      fetchTransactions();
-      return;
+      fetchTransactions()
+      return
     }
 
-    setLoading(true);
+    setLoading(true)
     try {
-      const response = await apiClient.searchTransactions(searchQuery);
-      setTransactions(response.results.data || []);
+      const response = await apiClient.searchTransactions(searchQuery)
+      setTransactions(response.results.data || [])
     } catch (error) {
-      console.error('Error searching transactions:', error);
+      console.error("Error searching transactions:", error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const isIncoming = (transaction: Transaction): boolean => {
-    if (!currentUser) return false;
-    return transaction.receiver.account === currentUser.Account ||
-           transaction.receiver.name === currentUser.Name;
-  };
-
-  const handleUserChange = () => {
-    apiClient.setSessionId('');
-    localStorage.removeItem('yaya_session_id');
-    navigate('/');
-  };
+    if (!currentUser) return false
+    return transaction.receiver.account === currentUser.Account || transaction.receiver.name === currentUser.Name
+  }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-900">
-              Transaction Dashboard
-            </h1>
-            {currentUser && (
-              <div className="flex items-center space-x-4">
-                <div className="text-right">
-                  <div className="font-medium">{currentUser.Name}</div>
-                  <div className="text-sm text-gray-500">@{currentUser.Account}</div>
-                </div>
-                <button
-                  onClick={handleUserChange}
-                  className="text-blue-600 hover:text-blue-800"
-                >
-                  Switch User
-                </button>
+    <AppLayout>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        {/* Search Section */}
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
+                <Input
+                  type="text"
+                  placeholder="Search transactions by sender, receiver, cause, or ID..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+                />
               </div>
-            )}
-          </div>
-        </div>
-      </header>
+              <div className="flex gap-2">
+                <Button onClick={handleSearch} className="flex-1 sm:flex-none">
+                  <Search className="h-4 w-4 mr-2" />
+                  Search
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSearchQuery("")
+                    fetchTransactions()
+                  }}
+                  className="flex-1 sm:flex-none"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Clear
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Search Bar */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="flex space-x-4">
-          <input
-            type="text"
-            placeholder="Search transactions by sender, receiver, cause, or ID..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-          />
-          <button
-            onClick={handleSearch}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-          >
-            Search
-          </button>
-          <button
-            onClick={() => {
-              setSearchQuery('');
-              fetchTransactions();
-            }}
-            className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700"
-          >
-            Clear
-          </button>
-        </div>
+        {/* Transactions Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
+              Recent Transactions
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6">
+            <PaginationDataTable
+              columns={columns}
+              data={transactions}
+              currentPage={currentPage}
+              onPageChange={setCurrentPage}
+              loading={loading}
+              onRowClick={handleRowClick}
+            />
+          </CardContent>
+        </Card>
       </div>
+    </AppLayout>
+  )
+}
 
-      {/* Transaction Table */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-          {loading ? (
-            <div className="text-center py-8">Loading...</div>
-          ) : (
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Direction
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    From/To
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Amount
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Cause
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {transactions.map((transaction) => {
-                  const incoming = isIncoming(transaction);
-                  return (
-                    <tr key={transaction.id}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            incoming
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-red-100 text-red-800'
-                          }`}
-                        >
-                          {incoming ? '← Incoming' : '→ Outgoing'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
-                          {incoming ? transaction.sender.name : transaction.receiver.name}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          @{incoming ? transaction.sender.account : transaction.receiver.account}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <span className={incoming ? 'text-green-600' : 'text-red-600'}>
-                          {incoming ? '+' : '-'}{transaction.amount_with_currency}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {transaction.cause}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(transaction.created_at_time * 1000).toLocaleDateString()}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
-
-        {/* Pagination */}
-        <div className="flex justify-center space-x-2 mt-6">
-          <button
-            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-            disabled={currentPage === 1}
-            className="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50"
-          >
-            Previous
-          </button>
-          <span className="px-4 py-2">Page {currentPage}</span>
-          <button
-            onClick={() => setCurrentPage(currentPage + 1)}
-            className="px-4 py-2 border border-gray-300 rounded-lg"
-          >
-            Next
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default Dashboard;
+export default Dashboard

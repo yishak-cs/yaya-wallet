@@ -26,7 +26,6 @@ const UserSelection: React.FC = () => {
         try {
             const userList = await apiClient.getUsers();
             setUsers(userList);
-            console.log(userList);
         } catch (error) {
             console.error('Error fetching users:', error);
         }
@@ -62,6 +61,11 @@ const UserSelection: React.FC = () => {
         setLoading(true);
         try {
             await apiClient.selectUser(selectedUser);
+            // Persist current user and notify layout listeners
+            try {
+                localStorage.setItem("yaya_current_user", JSON.stringify(selectedUser));
+                window.dispatchEvent(new CustomEvent('yaya:user-changed'));
+            } catch (e) {}
             showToast(`Selected ${selectedUser.Name} successfully!`);
             // Navigate to dashboard after a short delay to show the toast
             setTimeout(() => {
@@ -92,7 +96,7 @@ const UserSelection: React.FC = () => {
                         {/* Header */}
                         <div className="text-center mb-8">
                             <h1 className="text-2xl font-bold text-gray-700 mb-2">YaYa Wallet Dashboard</h1>
-                            <p className="text-gray-700/80 text-sm">Select a user to view their transactions</p>
+                            <p className="text-gray-700/80 text-sm">Select a user to view transactions as the user</p>
                         </div>
 
                         {/* User Selection */}
@@ -127,8 +131,8 @@ const UserSelection: React.FC = () => {
 
                                     <div className="flex flex-col items-start justify-start flex-1">
 
-                                            <div className="font-medium text-gray-700 text-sm">{user.Name}</div>
-                                            <div className="text-xs text-gray-700/70">@{user.Account}</div>
+                                        <div className="font-medium text-gray-700 text-sm">{user.Name}</div>
+                                        <div className="text-xs text-gray-700/70">@{user.Account}</div>
 
                                     </div>
                                 </label>
